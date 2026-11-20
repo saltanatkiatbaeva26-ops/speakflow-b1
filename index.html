@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpeakFlow B1 — Интерактивный тренажёр говорения (9–10 классы)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                        },
+                        tealaccent: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Кастомные анимации для плавного появления сообщений и индикатора записи */
+        @keyframes fadeInSlide {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .message-anim {
+            animation: fadeInSlide 0.35s ease-out forwards;
+        }
+        @keyframes pulseRing {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 12px rgba(239, 68, 68, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+        .recording-pulse {
+            animation: pulseRing 1.5s infinite;
+        }
+        /* Аккуратный скроллбар для чата */
+        .chat-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+        .chat-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+        .chat-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Всплывающее уведомление (Toast вместо alert) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Шапка приложения -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 to-tealaccent-600 flex items-center justify-center text-white shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">SpeakFlow <span class="text-brand-600">B1</span></h1>
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-tealaccent-100 text-tealaccent-700 border border-tealaccent-200">CEFR B1</span>
+                    </div>
+                    <p class="text-xs text-slate-500">Интерактивный AI-тренажёр говорения для 9–10 классов</p>
+                </div>
+            </div>
+
+            <!-- Данные ученика (компактная панель для исследования) -->
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200/80">
+                <div class="flex items-center gap-1.5 px-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <input type="text" id="student-name" placeholder="Имя или код (напр. Ученик 01)" 
+                        class="bg-white text-xs sm:text-sm px-2.5 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 w-40 sm:w-48 transition" />
+                </div>
+                <select id="student-grade" aria-label="Класс обучения"
+                    class="bg-white text-xs sm:text-sm px-2.5 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium text-slate-700 cursor-pointer">
+                    <option value="9 класс">9 класс</option>
+                    <option value="10 класс">10 класс</option>
+                </select>
+                <button onclick="showMethodologyModal()" title="Методическая справка для учителя"
+                    class="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-white rounded-lg transition" aria-label="Справка">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Основной контейнер -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ЭКРАН 1: ВЫБОР СЦЕНАРИЯ (Scenario Selector) -->
+        <section id="scenario-screen" class="space-y-6">
+            <div class="bg-gradient-to-r from-brand-600 to-tealaccent-600 rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+                <div class="relative z-10 max-w-3xl">
+                    <span class="inline-block text-xs font-semibold uppercase tracking-wider bg-white/20 px-3 py-1 rounded-full mb-3">
+                        Практика спонтанной речи • Level B1
+                    </span>
+                    <h2 class="text-2xl sm:text-3xl font-bold mb-2 leading-tight">
+                        Тренируй разговорный английский без страха ошибок
+                    </h2>
+                    <p class="text-brand-100 text-sm sm:text-base leading-relaxed">
+                        Выбери ситуацию общения. ИИ-собеседник будет задавать вопросы на английском, а справа ты всегда найдёшь <strong>речевые клише, перевод трудных слов и подсказки по грамматике</strong>. Отвечать можно голосом (через микрофон) или текстом.
+                    </p>
+                </div>
+                <!-- Декоративный элемент -->
+                <div class="hidden md:block absolute -right-10 -bottom-10 w-64 h-64 bg-white/10 rounded-full blur-2xl"></div>
+            </div>
+
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-800">Выбери тему диалога (3 сценария):</h3>
+                <span class="text-xs text-slate-500 hidden sm:inline">Длительность одного диалога: ~4–5 минут</span>
+            </div>
+
+            <!-- Карточки сценариев -->
+            <div id="scenarios-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Генерируется через JS -->
+            </div>
+        </section>
+
+        <!-- ЭКРАН 2: ИНТЕРАКТИВНЫЙ ДИАЛОГ + SCAFFOLDING (Active Trainer) -->
+        <section id="trainer-screen" class="hidden space-y-4">
+            <!-- Верхняя панель навигации сценария -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <button onclick="confirmExitToMenu()" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-brand-600 bg-slate-100 hover:bg-brand-50 px-3 py-2 rounded-xl transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        <span>К выбору тем</span>
+                    </button>
+                    <div>
+                        <h2 id="active-scenario-title" class="font-bold text-slate-900 text-base sm:text-lg">Scenario Title</h2>
+                        <p id="active-scenario-role" class="text-xs text-slate-500">Role description</p>
+                    </div>
+                </div>
+
+                <!-- Прогресс-бар шагов диалога -->
+                <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                    <div class="text-right">
+                        <span class="text-xs font-semibold text-slate-500 block">Прогресс диалога</span>
+                        <span id="turn-counter-text" class="text-sm font-bold text-brand-600">Реплика 1 из 5</span>
+                    </div>
+                    <div class="w-28 sm:w-36 bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                        <div id="progress-bar" class="bg-gradient-to-r from-brand-500 to-tealaccent-500 h-full rounded-full transition-all duration-500" style="width: 20%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Двухколоночная рабочая область -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                <!-- ЛЕВАЯ КОЛОНКА (7 колонок): Окно диалога и ввод ответа -->
+                <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[600px] sm:h-[640px] overflow-hidden">
+                    <!-- Шапка собеседника -->
+                    <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div id="bot-avatar" class="w-9 h-9 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-sm border border-brand-200">
+                                AI
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span id="bot-name" class="font-semibold text-sm text-slate-900">Alex (Exchange Student)</span>
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                </div>
+                                <span class="text-xs text-slate-500">Нажми значок динамика, чтобы прослушать реплику</span>
+                            </div>
+                <!-- ПРАВАЯ КОЛОНКА (5 колонок): Методический блок Scaffolding (L1/L2 -> L3) -->
+                <div class="lg:col-span-5 space-y-4">
+                    <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-4">
+                        <!-- Шапка и вкладки правой панели -->
+                        <div class="space-y-3 border-b border-slate-100 pb-3.5">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-tealaccent-500"></span>
+                                        Речевая опора (Scaffolding)
+                                    </h3>
+                                    <p class="text-xs text-slate-500 mt-0.5">Словарь, каркасы фраз и грамматика B1</p>
+                                </div>
+                                <span class="text-xs font-medium px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 border border-brand-100">
+                                    Опор: <strong id="hints-used-count">0</strong>
+                                </span>
+                            </div>
+
+                            <!-- Переключатель вкладок -->
+                            <div class="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl">
+                                <button type="button" id="tab-btn-step" onclick="switchScaffoldingTab('step')"
+                                    class="py-2 px-3 rounded-lg text-xs font-bold bg-white text-brand-700 shadow-sm transition">
+                                    Подсказки к вопросу
+                                </button>
+                                <button type="button" id="tab-btn-wordbank" onclick="switchScaffoldingTab('wordbank')"
+                                    class="py-2 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition">
+                                    Словарь темы (Word Bank)
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ВКЛАДКА 1: Подсказки к текущему вопросу -->
+                        <div id="scaffolding-tab-step" class="space-y-4 max-h-[540px] overflow-y-auto chat-scroll pr-1">
+                            <!-- 1. Готовые модели предложений (Sentence Frames) -->
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-brand-700">
+                                        1. Каркасы ответа (нажми, чтобы вставить)
+                                    </span>
+                                    <span class="text-[11px] text-slate-400">замени [скобки]</span>
+                                </div>
+                                <div id="scaffolding-frames" class="space-y-2">
+                                    <!-- Каркасы фраз генерируются динамически -->
+                                </div>
+                            </div>
+
+                            <!-- 2. Расширенный словарь шага (8–10 слов/фраз с частью речи) -->
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-tealaccent-700">
+                                        2. Слова и выражения к вопросу (8–10)
+                                    </span>
+                                    <span class="text-[11px] text-slate-400">клик = вставка</span>
+                                </div>
+                                <div id="scaffolding-vocab" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <!-- Карточки слов генерируются динамически -->
+                                </div>
+                            </div>
+
+                            <!-- 3. Грамматическая опора и профилактика интерференции (RU / KK -> EN) -->
+                            <div class="bg-amber-50/90 border border-amber-200 rounded-xl p-3.5 space-y-2.5">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                        </svg>
+                                        <span>3. Grammar Guide</span>
+                                    </span>
+                                    <span id="grammar-rule-title" class="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-200/80 text-amber-950">
+                                        Rule
+                                    </span>
+                                </div>
+
+                                <div class="bg-white/90 rounded-lg p-2.5 border border-amber-200/80 space-y-1.5 text-xs">
+                                    <p class="font-semibold text-slate-800">
+                                        Формула: <span id="grammar-formula" class="font-mono text-brand-700 font-bold"></span>
+                                    </p>
+                                    <div id="grammar-examples" class="text-slate-700 space-y-1 pl-2 border-l-2 border-tealaccent-400">
+                                        <!-- Примеры B1 -->
+                                    </div>
+                                </div>
+
+                                <div class="space-y-1">
+                                    <span class="text-[11px] font-bold uppercase tracking-wide text-rose-700 block">
+                                        Типичные ошибки (RU / KK → EN):
+                                    </span>
+                                    <ul id="grammar-mistakes" class="text-xs text-amber-950 space-y-1 list-disc pl-4 leading-relaxed">
+                                        <!-- Разбор ошибок интерференции -->
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ВКЛАДКА 2: Полный словарь темы (Word Bank) -->
+                        <div id="scaffolding-tab-wordbank" class="hidden space-y-3 max-h-[540px] overflow-y-auto chat-scroll pr-1">
+                            <div class="bg-tealaccent-50 border border-tealaccent-200 rounded-xl p-3 text-xs text-tealaccent-900">
+                                <strong>Тематический Word Bank:</strong> нажми на любое слово или выражение, чтобы сразу вставить его в свой ответ.
+                            </div>
+                            <div id="wordbank-list" class="space-y-2">
+                                <!-- Полный словарь сценария генерируется динамически -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Мини-памятка для ученика -->
+                    <div class="bg-slate-100 rounded-2xl p-3.5 border border-slate-200/80 text-xs text-slate-600 space-y-1">
+                        <p class="font-semibold text-slate-800">💡 Формула ответа уровня B1:</p>
+                        <p>Выбери каркас фразы → подставь слова из словаря → добавь причину (<em>because...</em>) или пример (<em>for example...</em>).</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ЭКРАН 3: ИТОГИ СЕССИИ И МИНИ-АНКЕТА ДЛЯ ДИССЕРТАЦИИ -->
+        <section id="results-screen" class="hidden max-w-4xl mx-auto space-y-6">
+            <div class="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                    <div>
+                        <span class="inline-block text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full mb-2">
+                            Диалог успешно завершён!
+                        </span>
+                        <h2 class="text-2xl font-bold text-slate-900">Твои результаты и мини-анкета</h2>
+                        <p class="text-sm text-slate-500 mt-1">Заполни короткую анкету ниже — она поможет в исследовании изучения английского языка.</p>
+                    </div>
+                    <button onclick="returnToMenu()" class="text-sm font-medium text-brand-600 hover:text-brand-800 bg-brand-50 px-4 py-2 rounded-xl transition">
+                        Пройти другую тему →
+                    </button>
+                </div>
+
+                <!-- Объективная статистика речи (автоматический сбор данных) -->
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Объективные показатели сессии</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                            <span class="text-xs text-slate-500 block">Реплик сказано</span>
+                            <span id="stat-turns" class="text-2xl font-extrabold text-slate-900 mt-1 block">5</span>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                            <span class="text-xs text-slate-500 block">Всего слов (EN)</span>
+                            <span id="stat-total-words" class="text-2xl font-extrabold text-brand-600 mt-1 block">0</span>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                            <span class="text-xs text-slate-500 block">Средняя длина фразы</span>
+                            <span id="stat-avg-words" class="text-2xl font-extrabold text-tealaccent-600 mt-1 block">0 сл.</span>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                            <span class="text-xs text-slate-500 block">Использовано опор</span>
+                            <span id="stat-hints" class="text-2xl font-extrabold text-amber-600 mt-1 block">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Мини-анкета ученика (для магистерской диссертации) -->
+                <form id="survey-form" class="space-y-5 pt-2 border-t border-slate-100">
+                    <h3 class="text-base font-bold text-slate-900">Мини-анкета обратной связи (4 вопроса)</h3>
+
+                    <!-- Вопрос 1 -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-slate-800">
+                            1. Насколько уверенно ты чувствовал(а) себя во время диалога?
+                        </label>
+                        <div class="grid grid-cols-1 sm:grid-cols-5 gap-2" id="q1-options">
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-2.5 text-center text-xs hover:bg-brand-50 transition has-[:checked]:bg-brand-600 has-[:checked]:text-white has-[:checked]:border-brand-600">
+                                <input type="radio" name="confidence" value="1 (Было страшно ошибиться)" class="sr-only" required>
+                                <span class="font-bold block text-sm mb-0.5">1</span>
+                                Совсем не уверен(а)
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-2.5 text-center text-xs hover:bg-brand-50 transition has-[:checked]:bg-brand-600 has-[:checked]:text-white has-[:checked]:border-brand-600">
+                                <input type="radio" name="confidence" value="2 (Немного волновался)" class="sr-only">
+                                <span class="font-bold block text-sm mb-0.5">2</span>
+                                Волновался(ась)
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-2.5 text-center text-xs hover:bg-brand-50 transition has-[:checked]:bg-brand-600 has-[:checked]:text-white has-[:checked]:border-brand-600">
+                                <input type="radio" name="confidence" value="3 (Нормально)" class="sr-only">
+                                <span class="font-bold block text-sm mb-0.5">3</span>
+                                Нормально
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-2.5 text-center text-xs hover:bg-brand-50 transition has-[:checked]:bg-brand-600 has-[:checked]:text-white has-[:checked]:border-brand-600">
+                                <input type="radio" name="confidence" value="4 (Довольно уверенно)" class="sr-only">
+                                <span class="font-bold block text-sm mb-0.5">4</span>
+                                Уверенно
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-2.5 text-center text-xs hover:bg-brand-50 transition has-[:checked]:bg-brand-600 has-[:checked]:text-white has-[:checked]:border-brand-600">
+                                <input type="radio" name="confidence" value="5 (Говорил свободно)" class="sr-only">
+                                <span class="font-bold block text-sm mb-0.5">5</span>
+                                Свободно!
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Вопрос 2 -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-slate-800">
+                            2. Помогли ли речевые клише и подсказки на русском языке быстрее сформулировать мысль на английском?
+                        </label>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-tealaccent-50 transition has-[:checked]:bg-tealaccent-600 has-[:checked]:text-white has-[:checked]:border-tealaccent-600">
+                                <input type="radio" name="scaffolding_help" value="Да, очень помогли" class="sr-only" required>
+                                Да, очень помогли
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-tealaccent-50 transition has-[:checked]:bg-tealaccent-600 has-[:checked]:text-white has-[:checked]:border-tealaccent-600">
+                                <input type="radio" name="scaffolding_help" value="Частично помогли" class="sr-only">
+                                Частично помогли
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-tealaccent-50 transition has-[:checked]:bg-tealaccent-600 has-[:checked]:text-white has-[:checked]:border-tealaccent-600">
+                                <input type="radio" name="scaffolding_help" value="Не понадобились" class="sr-only">
+                                Не понадобились
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Вопрос 3 -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-slate-800">
+                            3. Стало ли легче говорить на английском в таком формате по сравнению с обычным ответом у доски в классе?
+                        </label>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-brand-50 transition has-[:checked]:bg-brand-600 has-[:checked]:text-white has-[:checked]:border-brand-600">
+                                <input type="radio" name="easier_than_class" value="Да, намного легче" class="sr-only" required>
+                                Да, намного легче
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-brand-50 transition has-[:checked]:bg-brand-600 has-[:checked]:text-white has-[:checked]:border-brand-600">
+                                <input type="radio" name="easier_than_class" value="Немного легче" class="sr-only">
+                                Немного легче
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-brand-50 transition has-[:checked]:bg-brand-600 has-[:checked]:text-white has-[:checked]:border-brand-600">
+                                <input type="radio" name="easier_than_class" value="Так же, как в классе" class="sr-only">
+                                Так же, как в классе
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Вопрос 4 -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-slate-800">
+                            4. Какие подсказки в тренажёре помогли тебе больше всего?
+                        </label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-brand-50 transition has-[:checked]:bg-brand-600 has-[:checked]:text-white has-[:checked]:border-brand-600">
+                                <input type="radio" name="most_helpful_tool" value="Каркасы предложений (Sentence Frames)" class="sr-only" required>
+                                Готовые каркасы предложений (шаблоны)
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-tealaccent-50 transition has-[:checked]:bg-tealaccent-600 has-[:checked]:text-white has-[:checked]:border-tealaccent-600">
+                                <input type="radio" name="most_helpful_tool" value="Словарь с переводом (Vocabulary & Word Bank)" class="sr-only">
+                                Словарь с переводом и Word Bank
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-amber-50 transition has-[:checked]:bg-amber-600 has-[:checked]:text-white has-[:checked]:border-amber-600">
+                                <input type="radio" name="most_helpful_tool" value="Грамматическая памятка и разбор ошибок" class="sr-only">
+                                Грамматическая памятка и разбор ошибок
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-slate-100 transition has-[:checked]:bg-slate-800 has-[:checked]:text-white has-[:checked]:border-slate-800">
+                                <input type="radio" name="most_helpful_tool" value="Все подсказки в комплексе" class="sr-only">
+                                Все подсказки в комплексе
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Вопрос 5 -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-slate-800">
+                            5. Что было самым сложным во время общения?
+                        </label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-slate-100 transition has-[:checked]:bg-slate-800 has-[:checked]:text-white has-[:checked]:border-slate-800">
+                                <input type="radio" name="main_difficulty" value="Нехватка словарного запаса" class="sr-only" required>
+                                Нехватка английских слов
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-slate-100 transition has-[:checked]:bg-slate-800 has-[:checked]:text-white has-[:checked]:border-slate-800">
+                                <input type="radio" name="main_difficulty" value="Грамматика и времена" class="sr-only">
+                                Правильный порядок слов и времена
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-slate-100 transition has-[:checked]:bg-slate-800 has-[:checked]:text-white has-[:checked]:border-slate-800">
+                                <input type="radio" name="main_difficulty" value="Страх сделать ошибку" class="sr-only">
+                                Страх сделать ошибку
+                            </label>
+                            <label class="cursor-pointer border border-slate-200 rounded-xl p-3 text-xs sm:text-sm font-medium hover:bg-slate-100 transition has-[:checked]:bg-slate-800 has-[:checked]:text-white has-[:checked]:border-slate-800">
+                                <input type="radio" name="main_difficulty" value="Понимание вопросов собеседника" class="sr-only">
+                                Понимание вопросов на слух
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Кнопки экспорта результатов для учителя -->
+                    <div class="pt-4 border-t border-slate-200 flex flex-wrap items-center gap-3">
+                        <button type="button" onclick="copyReportForTeacher()"
+                            class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-sm transition flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                            </svg>
+                            <span>Скопировать отчёт для учителя</span>
+                        </button>
+
+                        <button type="button" onclick="downloadCSVReport()"
+                            class="px-5 py-3 rounded-xl bg-tealaccent-600 hover:bg-tealaccent-700 text-white font-semibold text-sm shadow-sm transition flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            <span>Скачать CSV (для Excel)</span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Предпросмотр текстового отчёта -->
+                <div id="report-preview-box" class="hidden bg-slate-900 text-slate-100 rounded-xl p-4 text-xs font-mono whitespace-pre-wrap leading-relaxed"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Модальное окно: Методическая справка для учителя / исследователя -->
+    <div id="methodology-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-lg text-slate-900">Методическая концепция (для диссертации)</h3>
+                <button onclick="closeMethodologyModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="text-sm text-slate-600 space-y-3 leading-relaxed">
+                <p><strong>Целевая группа:</strong> учащиеся 9–10 классов школ Каракалпакстана с русским языком обучения (английский язык как L3, уровень CEFR B1).</p>
+                <p><strong>Реализованные методические принципы:</strong></p>
+                <ul class="list-disc pl-5 space-y-1.5">
+                    <li><strong>Снижение языковой тревожности (Affective Filter):</strong> первый сценарий использует знакомый региональный контекст (Нукус, музей им. Савицкого, гостеприимство Каракалпакстана), что облегчает порождение речи.</li>
+                    <li><strong>Динамический Scaffolding (опора на L2):</strong> речевые клише B1, тематический словарь с русским переводом и <em>Grammar Alerts</em> предотвращают типичную русско-английскую интерференцию.</li>
+                    <li><strong>Развитие беглости и развёрнутости (Fluency & Elaboration):</strong> счётчик слов стимулирует переход от односложных ответов к развёрнутым высказываниям (12+ слов).</li>
+                    <li><strong>Сбор эмпирических данных:</strong> автоматический подсчёт объёма высказываний и встроенная анкета позволяют сравнить показатели до и после эксперимента.</li>
+                </ul>
+            </div>
+            <div class="pt-2 flex justify-end">
+                <button onclick="closeMethodologyModal()" class="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition">
+                    Понятно
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения выхода (вместо confirm()) -->
+    <div id="exit-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl space-y-4">
+            <h3 class="font-bold text-lg text-slate-900">Выйти из текущего диалога?</h3>
+            <p class="text-sm text-slate-600">Прогресс текущей беседы не сохранится, и ты вернёшься к выбору темы.</p>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeExitModal()" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition">
+                    Остаться
+                </button>
+                <button onclick="returnToMenu()" class="px-4 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition">
+                    Выйти к темам
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================================
+        // БАЗА СЦЕНАРИЕВ УРОВНЯ B1 ДЛЯ 9–10 КЛАССОВ (КАРАКАЛПАКСТАН, РУССКИЕ КЛАССЫ)
+        // Расширенный Vocabulary (8–10 на шаг + Word Bank), Sentence Frames и Grammar Guide
+        // ============================================================================
+        const SCENARIOS = [
+            {
+                id: 'karakalpakstan',
+                badge: 'Culture & Local Context',
+                badgeColor: 'bg-tealaccent-100 text-tealaccent-800',
+                title: 'Welcome to Karakalpakstan!',
+                titleRu: 'Гость из-за рубежа в Нукусе',
+                description: 'Ты встречаешь сверстника-школьника по обмену в Нукусе. Расскажи ему о родном крае, музее имени И.В. Савицкого, национальной кухне и гостеприимстве.',
+                botName: 'Liam (Exchange Student)',
+                botInitials: 'LM',
+                roleHint: 'Твоя роль: гид и друг из Каракалпакстана',
+                wordBank: [
+                    { en: "hospitable", pos: "adj", ru: "гостеприимный", example: "Local people in Nukus are very hospitable." },
+                    { en: "heritage", pos: "noun", ru: "культурное наследие", example: "We are proud of our rich cultural heritage." },
+                    { en: "masterpiece", pos: "noun", ru: "шедевр", example: "The museum has many rare masterpieces." },
+                    { en: "exhibition", pos: "noun", ru: "выставка, экспозиция", example: "There is a new art exhibition this month." },
+                    { en: "avant-garde art", pos: "phrase", ru: "авангардное искусство", example: "The Savitsky Museum is famous for avant-garde art." },
+                    { en: "traditional jewelry", pos: "phrase", ru: "традиционные украшения", example: "Karakalpak traditional jewelry looks very unique." },
+                    { en: "the Aral Sea", pos: "noun", ru: "Аральское море (с артиклем the!)", example: "Tourists often ask about the history of the Aral Sea." },
+                    { en: "desert landscape", pos: "phrase", ru: "пустынный пейзаж", example: "Around the city, you can see a vast desert landscape." },
+                    { en: "national cuisine", pos: "phrase", ru: "национальная кухня", example: "Our national cuisine is hearty and delicious." },
+                    { en: "to welcome guests", pos: "phrase", ru: "радушно принимать гостей", example: "In our culture, we always welcome guests with tea." },
+                    { en: "peaceful atmosphere", pos: "phrase", ru: "спокойная атмосфера", example: "Nukus has a very safe and peaceful atmosphere." },
+                    { en: "to preserve traditions", pos: "phrase", ru: "сохранять традиции", example: "Families try to preserve ancient traditions." },
+                    { en: "generous", pos: "adj", ru: "щедрый, радушный", example: "People here are kind and generous to visitors." },
+                    { en: "delicious", pos: "adj", ru: "очень вкусный", example: "Besbarmak and zhueri gurtik are really delicious." },
+                    { en: "to hang out with friends", pos: "phrase", ru: "проводить время с друзьями", example: "After school, we like to hang out with friends in the park." },
+                    { en: "youth center", pos: "noun", ru: "молодёжный центр", example: "Many teenagers attend courses at the youth center." },
+                    { en: "unforgettable", pos: "adj", ru: "незабываемый", example: "I hope your trip will be unforgettable." },
+                    { en: "warm welcome", pos: "phrase", ru: "тёплый приём", example: "Every tourist receives a warm welcome here." },
+                    { en: "to be proud of", pos: "phrase", ru: "гордиться чем-либо", example: "We are proud of our history and nature." },
+                    { en: "to recommend visiting", pos: "phrase", ru: "рекомендовать посетить", example: "I strongly recommend visiting the central museum." }
+                ],
+                turns: [
+                    {
+                        botText: "Hi! I'm so excited to finally visit Nukus! It's my first time in Karakalpakstan. How would you describe your hometown to someone who has never been here?",
+                        frames: [
+                            "Welcome to Nukus! In my opinion, it is a [adjective] city with [noun].",
+                            "What I like most about my hometown is [feature], because [reason].",
+                            "Although Nukus is not a huge metropolis, it is well-known for [place / quality]."
+                        ],
+                        vocab: [
+                            { en: "hospitable", pos: "adj", ru: "гостеприимный" },
+                            { en: "peaceful", pos: "adj", ru: "спокойный, мирный" },
+                            { en: "capital city", pos: "noun", ru: "столица республики" },
+                            { en: "unique culture", pos: "phrase", ru: "уникальная культура" },
+                            { en: "wide streets", pos: "phrase", ru: "широкие улицы" },
+                            { en: "friendly locals", pos: "phrase", ru: "дружелюбные жители" },
+                            { en: "to be proud of", pos: "phrase", ru: "гордиться (чем-л.)" },
+                            { en: "safe and clean", pos: "phrase", ru: "безопасный и чистый" },
+                            { en: "to attract tourists", pos: "phrase", ru: "привлекать туристов" }
+                        ],
+                        grammar: {
+                            title: "Present Simple + There is / There are",
+                            formula: "There is + ед. ч. / There are + мн. ч. | It is + прилагательное",
+                            examples: [
+                                "Nukus is a peaceful city, and people here are very hospitable.",
+                                "There are many modern parks and cultural centers in my hometown."
+                            ],
+                            mistakes: [
+                                "Не пропускай глагол-связку «is / are»: говори «My city is very green» (а не «My city very green»).",
+                                "Предлоги места: «in Nukus», «in Karakalpakstan» (без артикля the перед названиями городов и стран/республик)."
+                            ]
+                        }
+                    },
+                    {
+                        botText: "That sounds wonderful! I've heard a lot about the Savitsky Museum of Art. Have you ever been there, and what should I definitely see first?",
+                        frames: [
+                            "Yes, I have been there [number] times, and I strongly recommend seeing [exhibit].",
+                            "First of all, you should visit [section], because you will be amazed by [noun].",
+                            "It is famous all over the world for [collection], which shows [idea]."
+                        ],
+                        vocab: [
+                            { en: "exhibition", pos: "noun", ru: "выставка" },
+                            { en: "masterpiece", pos: "noun", ru: "шедевр" },
+                            { en: "avant-garde art", pos: "phrase", ru: "авангардное искусство" },
+                            { en: "traditional jewelry", pos: "phrase", ru: "национальные украшения" },
+                            { en: "national costumes", pos: "phrase", ru: "национальные костюмы" },
+                            { en: "rare paintings", pos: "phrase", ru: "редкие картины" },
+                            { en: "to be amazed by", pos: "phrase", ru: "быть поражённым (чем-л.)" },
+                            { en: "collection", pos: "noun", ru: "коллекция" },
+                            { en: "cultural heritage", pos: "phrase", ru: "культурное наследие" }
+                        ],
+                        grammar: {
+                            title: "Present Perfect + Modal 'should'",
+                            formula: "I have been to... | You should + V1 (глагол без to)",
+                            examples: [
+                                "I have been to the Savitsky Museum several times with my class.",
+                                "You should definitely see the collection of Karakalpak silver jewelry."
+                            ],
+                            mistakes: [
+                                "Для жизненного опыта используй «I have been there» (а не «I was there» без точной даты).",
+                                "После «should» НЕ ставится «to»: правильно «You should visit», ошибка — «You should to visit»."
+                            ]
+                        }
+                    },
+                    {
+                        botText: "I'll definitely put the Savitsky Museum at the top of my list! What about local food? I'm quite hungry—what traditional dish should we try for lunch?",
+                        frames: [
+                            "You should definitely try [dish name], which is our most famous traditional dish.",
+                            "It is usually cooked with [ingredients], and it tastes [adjective].",
+                            "In Karakalpak families, we always serve [food / drink] when guests arrive."
+                        ],
+                        vocab: [
+                            { en: "delicious", pos: "adj", ru: "очень вкусный" },
+                            { en: "national cuisine", pos: "phrase", ru: "национальная кухня" },
+                            { en: "dough and meat", pos: "phrase", ru: "тесто и мясо" },
+                            { en: "to be cooked with", pos: "phrase", ru: "готовиться из / с" },
+                            { en: "hospitality", pos: "noun", ru: "гостеприимство" },
+                            { en: "generous portion", pos: "phrase", ru: "щедрая порция" },
+                            { en: "hot green tea", pos: "phrase", ru: "горячий зелёный чай" },
+                            { en: "to taste", pos: "verb", ru: "попробовать на вкус" },
+                            { en: "hearty meal", pos: "phrase", ru: "сытное блюдо" }
+                        ],
+                        grammar: {
+                            title: "Passive Voice (Present Simple)",
+                            formula: "It is cooked / served / made with + существительное",
+                            examples: [
+                                "Zhueri gurtik is made with special flour, meat, and onions.",
+                                "Tea is usually served before and after the main meal."
+                            ],
+                            mistakes: [
+                                "Не говори «very delicious» — слово «delicious» уже означает «очень вкусный» (говори «really delicious»).",
+                                "Названия национальных блюд не переводятся, но их можно пояснить через «which is a traditional dish of...»."
+                            ]
+                        }
+                    },
+                    {
+                        botText: "Yum, that makes me hungry right now! Besides food and museums, what do teenagers in Nukus usually do in their free time after school?",
+                        frames: [
+                            "In our free time, my friends and I usually [activity] because [reason].",
+                            "Many teenagers in my school are keen on [sport / hobby] or attending [club].",
+                            "On weekends, we prefer [V-ing] rather than [V-ing]."
+                        ],
+                        vocab: [
+                            { en: "to hang out", pos: "verb", ru: "проводить время с друзьями" },
+                            { en: "sports clubs", pos: "noun", ru: "спортивные секции" },
+                            { en: "to attend courses", pos: "phrase", ru: "посещать курсы" },
+                            { en: "to prepare for exams", pos: "phrase", ru: "готовиться к экзаменам" },
+                            { en: "youth center", pos: "noun", ru: "молодёжный центр" },
+                            { en: "to be keen on", pos: "phrase", ru: "увлекаться (чем-л.)" },
+                            { en: "to walk in the park", pos: "phrase", ru: "гулять в парке" },
+                            { en: "board games", pos: "noun", ru: "настольные игры" },
+                            { en: "to relax after classes", pos: "phrase", ru: "отдыхать после уроков" }
+                        ],
+                        grammar: {
+                            title: "Gerund (-ing) after verbs of preference",
+                            formula: "enjoy / prefer / keen on / interested in + V-ing",
+                            examples: [
+                                "Many teenagers are keen on playing football and volleyball.",
+                                "After school, I enjoy meeting my friends or learning English."
+                            ],
+                            mistakes: [
+                                "После «enjoy» и «keen on» нужен глагол с -ing: «enjoy walking» (ошибка: «enjoy to walk»).",
+                                "Дни недели и выходные: «on weekends» или «at the weekend» (не «in weekends»)."
+                            ]
+                        }
+                    },
+                    {
+                        botText: "It sounds like you have a great balance between studying and relaxing. Thank you so much for showing me around! What is one wish you have for visitors coming to Karakalpakstan?",
+                        frames: [
+                            "I hope that every visitor will [verb] and take home [noun].",
+                            "I wish you an unforgettable stay in Karakalpakstan, full of [noun].",
+                            "Feel free to ask me if you need [help / advice] during your trip!"
+                        ],
+                        vocab: [
+                            { en: "unforgettable", pos: "adj", ru: "незабываемый" },
+                            { en: "bright memories", pos: "phrase", ru: "яркие воспоминания" },
+                            { en: "warm welcome", pos: "phrase", ru: "тёплый приём" },
+                            { en: "to respect traditions", pos: "phrase", ru: "уважать традиции" },
+                            { en: "the Aral Sea", pos: "noun", ru: "Аральское море" },
+                            { en: "to explore", pos: "verb", ru: "исследовать, открывать" },
+                            { en: "kindness", pos: "noun", ru: "доброта" },
+                            { en: "to come back again", pos: "phrase", ru: "вернуться снова" }
+                        ],
+                        grammar: {
+                            title: "Future Simple after 'I hope'",
+                            formula: "I hope (that) + подлежащее + will + V1",
+                            examples: [
+                                "I hope you will enjoy our traditional food and hospitality.",
+                                "I wish you a wonderful and safe journey!"
+                            ],
+                            mistakes: [
+                                "После «I hope» в английском используется «will» (а не «would»): «I hope you will like it».",
+                                "Перед названиями морей и рек ставится артикль «the»: «the Aral Sea», «the Amu Darya River»."
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                id: 'school_future',
+                badge: 'School & Future Career',
+                badgeColor: 'bg-brand-100 text-brand-800',
+                title: 'School Life & Future Plans',
+                titleRu: 'Учёба в 9–10 классе и выбор профессии',
+                description: 'Обсуди с зарубежным сверстником школьные предметы, изучение нескольких языков (каракалпакского, русского, английского) и планы после окончания школы.',
+                botName: 'Emma (High School Peer)',
+                botInitials: 'EM',
+                roleHint: 'Твоя роль: старшеклассник из 9–10 класса',
+                wordBank: [
+                    { en: "challenging", pos: "adj", ru: "сложный, но интересный", example: "Physics is challenging, but very logical." },
+                    { en: "compulsory subjects", pos: "phrase", ru: "обязательные предметы", example: "Math and languages are compulsory subjects at school." },
+                    { en: "to enter a university", pos: "phrase", ru: "поступить в университет", example: "I want to study hard to enter a good university." },
+                    { en: "multilingual", pos: "adj", ru: "многоязычный", example: "Being multilingual helps us understand different cultures." },
+                    { en: "language barrier", pos: "phrase", ru: "языковой барьер", example: "Speaking practice helps overcome the language barrier." },
+                    { en: "to translate in mind", pos: "phrase", ru: "переводить в уме", example: "At first, students translate sentences in mind." },
+                    { en: "pronunciation", pos: "noun", ru: "произношение", example: "Listening to podcasts improves my pronunciation." },
+                    { en: "to graduate from school", pos: "phrase", ru: "окончить школу", example: "After graduating from school, I plan to study IT." },
+                    { en: "career path", pos: "phrase", ru: "карьерный путь", example: "Choosing a career path is an important step in grade 10." },
+                    { en: "to make a decision", pos: "phrase", ru: "принять решение", example: "My parents help me make a smart decision." },
+                    { en: "well-paid profession", pos: "phrase", ru: "высокооплачиваемая профессия", example: "Software engineering is a well-paid profession." },
+                    { en: "essential skill", pos: "phrase", ru: "необходимый навык", example: "English is an essential skill in the modern world." },
+                    { en: "international company", pos: "phrase", ru: "международная компания", example: "I dream of working in an international company." },
+                    { en: "to depend on", pos: "verb", ru: "зависеть от (предлог ON!)", example: "Success depends on your daily effort." },
+                    { en: "opportunity", pos: "noun", ru: "возможность", example: "Knowing English gives us many opportunities." },
+                    { en: "to pass exams", pos: "phrase", ru: "сдать экзамены", example: "We need to prepare carefully to pass exams." },
+                    { en: "self-confidence", pos: "noun", ru: "уверенность в себе", example: "Each small success builds self-confidence." },
+                    { en: "to achieve goals", pos: "phrase", ru: "достигать целей", example: "Discipline helps students achieve their goals." }
+                ],
+                turns: [
+                    {
+                        botText: "Hey! I'm doing a school project about teenagers in different countries. You're in grade 9 or 10, right? Which school subjects do you find most useful for your future, and why?",
+                        frames: [
+                            "In my opinion, the most useful subjects for my future are [subject 1] and [subject 2].",
+                            "I am particularly interested in [subject] because it helps me [verb].",
+                            "On the other hand, I find [subject] quite challenging, yet necessary for [goal]."
+                        ],
+                        vocab: [
+                            { en: "challenging", pos: "adj", ru: "сложный, но интересный" },
+                            { en: "useful skills", pos: "phrase", ru: "полезные навыки" },
+                            { en: "to enter a university", pos: "phrase", ru: "поступить в вуз" },
+                            { en: "Computer Science / IT", pos: "noun", ru: "информатика" },
+                            { en: "foreign languages", pos: "phrase", ru: "иностранные языки" },
+                            { en: "to be good at", pos: "phrase", ru: "хорошо разбираться в" },
+                            { en: "schedule / timetable", pos: "noun", ru: "расписание уроков" },
+                            { en: "critical thinking", pos: "phrase", ru: "критическое мышление" },
+                            { en: "to broaden horizons", pos: "phrase", ru: "расширять кругозор" }
+                        ],
+                        grammar: {
+                            title: "Subject-Verb Agreement + Adjectives",
+                            formula: "Subject 1 and Subject 2 ARE useful | I am good AT + noun/V-ing",
+                            examples: [
+                                "English and Computer Science are very useful for my future.",
+                                "I am good at solving math problems, so I enjoy algebra."
+                            ],
+                            mistakes: [
+                                "Если предмета два («English and IT»), используй глагол «are», а не «is».",
+                                "После «good» ставится предлог «at» (а не «in»): «I am good at English»."
+                            ]
+                        }
+                    },
+                    {
+                        botText: "That makes a lot of sense! I think it's amazing that you already speak Karakalpak and Russian, and now you're learning English. Does knowing two languages help you learn English?",
+                        frames: [
+                            "Yes, I agree that knowing two languages helps me because [reason].",
+                            "Sometimes I compare English grammar with Russian or Karakalpak, which makes [aspect] easier.",
+                            "However, the hardest part for me is [difficulty], so I try to [solution]."
+                        ],
+                        vocab: [
+                            { en: "multilingual", pos: "adj", ru: "многоязычный" },
+                            { en: "pronunciation", pos: "noun", ru: "произношение" },
+                            { en: "language barrier", pos: "phrase", ru: "языковой барьер" },
+                            { en: "to compare", pos: "verb", ru: "сравнивать" },
+                            { en: "vocabulary", pos: "noun", ru: "словарный запас" },
+                            { en: "word order", pos: "phrase", ru: "порядок слов" },
+                            { en: "to translate", pos: "verb", ru: "переводить" },
+                            { en: "fluent speech", pos: "phrase", ru: "беглая речь" },
+                            { en: "to practice speaking", pos: "phrase", ru: "практиковать говорение" }
+                        ],
+                        grammar: {
+                            title: "Present Simple for Facts & Habits",
+                            formula: "I agree with you (без am!) | Knowing languages helps (ед. ч. -s)",
+                            examples: [
+                                "I agree with you that learning a third language trains our memory.",
+                                "Knowing Russian helps me understand many international words."
+                            ],
+                            mistakes: [
+                                "Частая ошибка: «I am agree». Правильно: «I agree with you» (agree — обычный глагол).",
+                                "Герундий в роли подлежащего требует глагол с -s: «Learning languages helps us»."
+                            ]
+                        }
+                    },
+                    {
+                        botText: "It's super impressive to be multilingual! Speaking of the future, have you already decided what profession you would like to choose after graduating from school?",
+                        frames: [
+                            "I haven't made a final decision yet, but I am considering a career in [field].",
+                            "My dream job is to become a/an [profession] because I want to [goal].",
+                            "After graduating from school, I plan to enter [university / faculty]."
+                        ],
+                        vocab: [
+                            { en: "to graduate from school", pos: "phrase", ru: "окончить школу" },
+                            { en: "to make a decision", pos: "phrase", ru: "принять решение" },
+                            { en: "career path", pos: "phrase", ru: "карьерный путь" },
+                            { en: "well-paid job", pos: "phrase", ru: "высокооплачиваемая работа" },
+                            { en: "software developer", pos: "noun", ru: "разработчик ПО" },
+                            { en: "to consider", pos: "verb", ru: "рассматривать (вариант)" },
+                            { en: "supportive parents", pos: "phrase", ru: "поддерживающие родители" },
+                            { en: "responsibility", pos: "noun", ru: "ответственность" },
+                            { en: "to apply for", pos: "verb", ru: "подавать документы в" }
+                        ],
+                        grammar: {
+                            title: "Future Intentions + Indefinite Article (a/an)",
+                            formula: "I would like to become A doctor / AN engineer | I plan to + V1",
+                            examples: [
+                                "I would like to become an IT specialist or a translator.",
+                                "My parents support my decision to study abroad."
+                            ],
+                            mistakes: [
+                                "Перед названием профессии в единственном числе ОБЯЗАТЕЛЕН артикль «a / an»: «become a teacher».",
+                                "«Graduate from school» — предлог «from» обязателен (не «graduate school»)."
+                            ]
+                        }
+                    },
+                    {
+                        botText: "That sounds like a really promising career path! Do you think you will need English in that profession, or is it mostly needed for traveling?",
+                        frames: [
+                            "I firmly believe that English is essential for [profession], not just for traveling.",
+                            "Nowadays, career success largely depends on [skill / knowledge].",
+                            "Besides traveling, knowing English allows specialists to [action]."
+                        ],
+                        vocab: [
+                            { en: "essential", pos: "adj", ru: "крайне необходимый" },
+                            { en: "to depend on", pos: "verb", ru: "зависеть от" },
+                            { en: "international company", pos: "phrase", ru: "международная компания" },
+                            { en: "opportunity", pos: "noun", ru: "возможность" },
+                            { en: "to communicate", pos: "verb", ru: "общаться" },
+                            { en: "global market", pos: "phrase", ru: "мировой рынок" },
+                            { en: "access to knowledge", pos: "phrase", ru: "доступ к знаниям" },
+                            { en: "remote work", pos: "phrase", ru: "удалённая работа" },
+                            { en: "competitive", pos: "adj", ru: "конкурентоспособный" }
+                        ],
+                        grammar: {
+                            title: "Dependent Prepositions + Allow smb to do",
+                            formula: "depend ON + noun | allow + человек + TO + V1",
+                            examples: [
+                                "A good salary often depends on your knowledge of foreign languages.",
+                                "English allows young specialists to find jobs in international companies."
+                            ],
+                            mistakes: [
+                                "Калька с русского «зависит от»: в английском «depends ON» (ошибка: «depends from»).",
+                                "После «allow us» ставим частицу «to»: «allows us to travel»."
+                            ]
+                        }
+                    },
+                    {
+                        botText: "You're totally right—English opens so many doors today. Thanks for sharing your thoughts! Good luck with your studies and exams this year!",
+                        frames: [
+                            "Thank you so much! It was really nice talking to you about [topic].",
+                            "I will keep practicing my English every day in order to [goal].",
+                            "I wish you great success with your school project and future plans!"
+                        ],
+                        vocab: [
+                            { en: "to achieve goals", pos: "phrase", ru: "достигать целей" },
+                            { en: "to pass exams", pos: "phrase", ru: "сдать экзамены" },
+                            { en: "keep practicing", pos: "phrase", ru: "продолжать практиковаться" },
+                            { en: "motivation", pos: "noun", ru: "мотивация" },
+                            { en: "encouragement", pos: "noun", ru: "поддержка, ободрение" },
+                            { en: "to stay focused", pos: "phrase", ru: "сохранять фокус" },
+                            { en: "advice", pos: "noun", ru: "совет (неисч.)" },
+                            { en: "pleasure", pos: "noun", ru: "удовольствие" }
+                        ],
+                        grammar: {
+                            title: "Keep + V-ing & Uncountable Nouns",
+                            formula: "keep + V-ing | advice / knowledge / information (без -s)",
+                            examples: [
+                                "I will keep improving my speaking skills every week.",
+                                "Thank you for your kind words and useful advice!"
+                            ],
+                            mistakes: [
+                                "Слова «advice» (совет), «knowledge» (знания) и «information» не имеют формы множественного числа (без -s!).",
+                                "После «keep» (продолжать) глагол идёт с -ing: «keep learning»."
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                id: 'ai_smartphones',
+                badge: 'Debate: AI & Technology',
+                badgeColor: 'bg-amber-100 text-amber-800',
+                title: 'Smartphones & AI in School',
+                titleRu: 'ИИ-чатботы и смартфоны в учёбе',
+                description: 'Дружеская дискуссия: помогают ли нейросети и смартфоны учить английский и готовиться к урокам, или они мешают ученикам думать самостоятельно?',
+                botName: 'Noah (Tech Club Member)',
+                botInitials: 'NH',
+                roleHint: 'Твоя роль: участник школьного дискуссионного клуба',
+                wordBank: [
+                    { en: "to distract", pos: "verb", ru: "отвлекать", example: "Notifications can easily distract students during lessons." },
+                    { en: "educational tool", pos: "phrase", ru: "образовательный инструмент", example: "A smartphone can be a powerful educational tool." },
+                    { en: "to search for information", pos: "phrase", ru: "искать информацию", example: "We use the internet to search for information quickly." },
+                    { en: "self-control", pos: "noun", ru: "самоконтроль", example: "Using gadgets wisely requires self-control." },
+                    { en: "instant feedback", pos: "phrase", ru: "мгновенная обратная связь", example: "AI chatbots give instant feedback on our answers." },
+                    { en: "to make mistakes", pos: "phrase", ru: "делать ошибки", example: "Students shouldn't be afraid to make mistakes." },
+                    { en: "fear of judgment", pos: "phrase", ru: "страх осуждения", example: "Chatting with AI removes the fear of judgment." },
+                    { en: "to replace a teacher", pos: "phrase", ru: "заменить учителя", example: "Technology cannot completely replace a live teacher." },
+                    { en: "to cheat / copy", pos: "verb", ru: "списывать / копировать", example: "Some pupils try to copy essays using AI." },
+                    { en: "independent thinking", pos: "phrase", ru: "самостоятельное мышление", example: "Schools must develop independent thinking." },
+                    { en: "shortcut", pos: "noun", ru: "лёгкий обходной путь", example: "Using AI as a shortcut stops real learning." },
+                    { en: "personal tutor", pos: "phrase", ru: "личный репетитор", example: "An AI chatbot works like a 24/7 personal tutor." },
+                    { en: "interactive lessons", pos: "phrase", ru: "интерактивные уроки", example: "Future classrooms will have more interactive lessons." },
+                    { en: "digital literacy", pos: "phrase", ru: "цифровая грамотность", example: "Digital literacy is essential for modern teenagers." },
+                    { en: "balanced approach", pos: "phrase", ru: "сбалансированный подход", example: "We need a balanced approach to technology in school." },
+                    { en: "to express an opinion", pos: "phrase", ru: "выражать мнение", example: "Debates help students express an opinion clearly." },
+                    { en: "advantage and disadvantage", pos: "phrase", ru: "преимущество и недостаток", example: "Every new technology has advantages and disadvantages." },
+                    { en: "to improve fluency", pos: "phrase", ru: "улучшить беглость речи", example: "Regular dialogues improve speaking fluency." }
+                ],
+                turns: [
+                    {
+                        botText: "Hi there! Our school debate club is discussing technology today. Some teachers say smartphones distract students in class, while students say they are useful. What is your point of view?",
+                        frames: [
+                            "From my point of view, smartphones can be [adjective] if we use them [adverb].",
+                            "On the one hand, they help students [action], but on the other hand, they can [problem].",
+                            "I think everything depends on [factor] during the lesson."
+                        ],
+                        vocab: [
+                            { en: "to distract", pos: "verb", ru: "отвлекать" },
+                            { en: "educational tool", pos: "phrase", ru: "учебный инструмент" },
+                            { en: "to search for information", pos: "phrase", ru: "искать информацию" },
+                            { en: "self-control", pos: "noun", ru: "самоконтроль" },
+                            { en: "online dictionary", pos: "phrase", ru: "онлайн-словарь" },
+                            { en: "social media", pos: "noun", ru: "социальные сети" },
+                            { en: "wisely", pos: "adverb", ru: "разумно, с умом" },
+                            { en: "balanced approach", pos: "phrase", ru: "сбалансированный подход" },
+                            { en: "advantage", pos: "noun", ru: "преимущество" }
+                        ],
+                        grammar: {
+                            title: "Contrast Linkers (On the one hand... On the other hand)",
+                            formula: "On the one hand, + S + V. On the other hand, + S + V.",
+                            examples: [
+                                "On the one hand, smartphones help us check new words quickly.",
+                                "On the other hand, notifications often distract students in class."
+                            ],
+                            mistakes: [
+                                "Слово «information» всегда в единственном числе: «useful information» (ошибка: «informations»).",
+                                "Предлог после «search»: «search FOR information» (не «search information» без предлога, когда речь о поиске данных)."
+                            ]
+                        }
+                    },
+                    {
+                        botText: "That's a very balanced answer! What about AI chatbots for learning English? Do you think practicing speaking with an AI chatbot is helpful for students?",
+                        frames: [
+                            "Yes, I believe AI chatbots are very helpful because they allow us to [action].",
+                            "When I practice with an AI, I don't feel afraid of [fear], so I speak more [adverb].",
+                            "However, an AI chatbot cannot completely replace [person / activity]."
+                        ],
+                        vocab: [
+                            { en: "to make mistakes", pos: "phrase", ru: "делать ошибки" },
+                            { en: "instant feedback", pos: "phrase", ru: "мгновенная обратная связь" },
+                            { en: "confident", pos: "adj", ru: "уверенный в себе" },
+                            { en: "personal tutor", pos: "phrase", ru: "личный репетитор" },
+                            { en: "fear of judgment", pos: "phrase", ru: "страх осуждения" },
+                            { en: "to improve fluency", pos: "phrase", ru: "улучшать беглость речи" },
+                            { en: "to replace", pos: "verb", ru: "заменять" },
+                            { en: "live communication", pos: "phrase", ru: "живое общение" },
+                            { en: "available 24/7", pos: "phrase", ru: "доступный круглосуточно" }
+                        ],
+                        grammar: {
+                            title: "Collocations with MAKE vs DO + Modal 'can'",
+                            formula: "make mistakes / make progress | can + V1 (без to)",
+                            examples: [
+                                "Students can make mistakes without feeling embarrassed.",
+                                "Regular practice with a chatbot helps us make fast progress."
+                            ],
+                            mistakes: [
+                                "Устойчивое сочетание: «make mistakes» (делать ошибки) — всегда глагол MAKE, не DO!",
+                                "После «can / cannot» частица «to» не ставится: «cannot replace»."
+                            ]
+                        }
+                    },
+                    {
+                        botText: "I agree—not being afraid of mistakes is a huge advantage! Still, some people worry that students might use AI just to copy their homework without thinking. How can we avoid that?",
+                        frames: [
+                            "That is a real problem, so students should use AI to [purpose] instead of [bad habit].",
+                            "If students only copy answers from AI, they will not [consequence].",
+                            "Teachers can design creative tasks that require [skill]."
+                        ],
+                        vocab: [
+                            { en: "to cheat / copy", pos: "verb", ru: "списывать" },
+                            { en: "independent thinking", pos: "phrase", ru: "самостоятельное мышление" },
+                            { en: "to explain rules", pos: "phrase", ru: "объяснять правила" },
+                            { en: "shortcut", pos: "noun", ru: "обходной путь / халтура" },
+                            { en: "honest", pos: "adj", ru: "честный" },
+                            { en: "to check understanding", pos: "phrase", ru: "проверять понимание" },
+                            { en: "brainstorming", pos: "noun", ru: "мозговой штурм" },
+                            { en: "responsibility", pos: "noun", ru: "ответственность" },
+                            { en: "to develop skills", pos: "phrase", ru: "развивать навыки" }
+                        ],
+                        grammar: {
+                            title: "First Conditional + 'Instead of + V-ing'",
+                            formula: "If + Present Simple, will + V1 | instead of + V-ing",
+                            examples: [
+                                "If you only copy answers, you will fail the real exam.",
+                                "Instead of copying essays, we should ask AI to explain grammar rules."
+                            ],
+                            mistakes: [
+                                "В условии после «If» НЕ ставим «will»: «If students copy...» (ошибка: «If students will copy...»).",
+                                "После «instead of» нужен глагол с -ing: «instead of copying»."
+                            ]
+                        }
+                    },
+                    {
+                        botText: "Great point! Using AI as a tutor rather than a shortcut makes total sense. Imagine schools in 10 years—how do you think English lessons will look in the future?",
+                        frames: [
+                            "In ten years, I imagine English lessons will become much more [adjective].",
+                            "Students will probably use [technology] to practice [skill] every day.",
+                            "At the same time, real discussions with teachers and classmates will remain [adjective]."
+                        ],
+                        vocab: [
+                            { en: "interactive lessons", pos: "phrase", ru: "интерактивные уроки" },
+                            { en: "virtual reality", pos: "phrase", ru: "виртуальная реальность" },
+                            { en: "personalized learning", pos: "phrase", ru: "индивидуальное обучение" },
+                            { en: "digital literacy", pos: "phrase", ru: "цифровая грамотность" },
+                            { en: "to remain essential", pos: "phrase", ru: "оставаться необходимым" },
+                            { en: "AI assistant", pos: "noun", ru: "ИИ-помощник" },
+                            { en: "teamwork", pos: "noun", ru: "командная работа" },
+                            { en: "to adapt to", pos: "verb", ru: "адаптироваться к" }
+                        ],
+                        grammar: {
+                            title: "Future Predictions (will / will probably)",
+                            formula: "Subject + will (probably) + V1",
+                            examples: [
+                                "Classrooms will probably use smart AI assistants for speaking practice.",
+                                "However, human communication will always remain essential."
+                            ],
+                            mistakes: [
+                                "Место слова «probably»: ставится ПОСЛЕ «will» в утверждении («will probably use»), но ПЕРЕД «won't» в отрицании («probably won't replace»)."
+                            ]
+                        }
+                    },
+                    {
+                        botText: "What an inspiring vision of future schools! You gave really strong arguments for our debate. Thanks for chatting with me today!",
+                        frames: [
+                            "Thank you! I really enjoyed discussing [topic] with you today.",
+                            "This conversation was great practice for my [skill] and confidence.",
+                            "I agree that technology should help us learn, not think for us!"
+                        ],
+                        vocab: [
+                            { en: "strong arguments", pos: "phrase", ru: "сильные аргументы" },
+                            { en: "speaking skills", pos: "phrase", ru: "навыки говорения" },
+                            { en: "to express an opinion", pos: "phrase", ru: "выражать мнение" },
+                            { en: "valuable experience", pos: "phrase", ru: "ценный опыт" },
+                            { en: "to boost confidence", pos: "phrase", ru: "повысить уверенность" },
+                            { en: "thought-provoking", pos: "adj", ru: "заставляющий задуматься" },
+                            { en: "pleasure", pos: "noun", ru: "удовольствие" },
+                            { en: "debate", pos: "noun", ru: "дискуссия, дебаты" }
+                        ],
+                        grammar: {
+                            title: "Summarizing & Gerund after 'enjoy'",
+                            formula: "I enjoyed + V-ing | Thank you for + V-ing",
+                            examples: [
+                                "I enjoyed sharing my opinion and practicing English with you.",
+                                "Thank you for asking such interesting questions!"
+                            ],
+                            mistakes: [
+                                "После «enjoy» и после предлога «for» глагол всегда с -ing: «enjoyed discussing», «thank you for chatting»."
+                            ]
+                        }
+                    }
+                ]
+            }
+        ];
+
+        // ============================================================================
+        // СОСТОЯНИЕ ПРИЛОЖЕНИЯ (STATE)
+        // ============================================================================
+        let state = {
+            currentScenario: null,
+            currentTurnIndex: 0,
+            userResponses: [], // { turn, text, wordCount }
+            hintsUsed: 0,
+            autoSpeak: true,
+            isRecording: false,
+            recognition: null
+        };
+
+        // ============================================================================
+        // ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ
+        // ============================================================================
+        window.onload = function () {
+            renderScenarioCards();
+            initSpeechRecognition();
+            setupInputListeners();
+        };
+
+        function renderScenarioCards() {
+            const grid = document.getElementById('scenarios-grid');
+            grid.innerHTML = SCENARIOS.map(sc => `
+                <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-300 transition flex flex-col justify-between group">
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-full ${sc.badgeColor}">
+                                ${sc.badge}
+                            </span>
+                            <span class="text-xs text-slate-400 font-medium">${sc.turns.length} реплик</span>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-bold text-slate-900 group-hover:text-brand-600 transition">${sc.title}</h4>
+                            <p class="text-xs font-semibold text-slate-500 mt-0.5">${sc.titleRu}</p>
+                        </div>
+                        <p class="text-sm text-slate-600 leading-relaxed">
+                            ${sc.description}
+                        </p>
+                    </div>
+                    <div class="pt-5 mt-4 border-t border-slate-100">
+                        <button onclick="startScenario('${sc.id}')"
+                            class="w-full py-2.5 px-4 rounded-xl bg-slate-900 group-hover:bg-brand-600 text-white font-semibold text-sm transition flex items-center justify-center gap-2">
+                            <span>Начать диалог</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ============================================================================
+        // ЗАПУСК И УПРАВЛЕНИЕ СЦЕНАРИЕМ
+        // ============================================================================
+        function startScenario(scenarioId) {
+            const scenario = SCENARIOS.find(s => s.id === scenarioId);
+            if (!scenario) return;
+
+            state.currentScenario = scenario;
+            state.currentTurnIndex = 0;
+            state.userResponses = [];
+            state.hintsUsed = 0;
+
+            // Обновляем UI шапки тренажёра
+            document.getElementById('active-scenario-title').textContent = `${scenario.title} (${scenario.titleRu})`;
+            document.getElementById('active-scenario-role').textContent = scenario.roleHint;
+            document.getElementById('bot-name').textContent = scenario.botName;
+            document.getElementById('bot-avatar').textContent = scenario.botInitials;
+            document.getElementById('hints-used-count').textContent = '0';
+
+            // Заполняем общий тематический Word Bank для выбранного сценария
+            renderWordBank(scenario.wordBank);
+            switchScaffoldingTab('step');
+
+            // Очищаем чат и поле ввода
+            document.getElementById('chat-messages').innerHTML = '';
+            const input = document.getElementById('user-input');
+            input.value = '';
+            updateWordCounter('');
+
+            // Переключаем экраны
+            document.getElementById('scenario-screen').classList.add('hidden');
+            document.getElementById('results-screen').classList.add('hidden');
+            document.getElementById('trainer-screen').classList.remove('hidden');
+
+            // Запускаем первую реплику бота
+            presentBotTurn(0);
+        }
+
+        function switchScaffoldingTab(tabName) {
+            const tabStep = document.getElementById('scaffolding-tab-step');
+            const tabWordBank = document.getElementById('scaffolding-tab-wordbank');
+            const btnStep = document.getElementById('tab-btn-step');
+            const btnWordBank = document.getElementById('tab-btn-wordbank');
+
+            if (tabName === 'step') {
+                tabStep.classList.remove('hidden');
+                tabWordBank.classList.add('hidden');
+                btnStep.className = 'py-2 px-3 rounded-lg text-xs font-bold bg-white text-brand-700 shadow-sm transition';
+                btnWordBank.className = 'py-2 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition';
+            } else {
+                tabStep.classList.add('hidden');
+                tabWordBank.classList.remove('hidden');
+                btnWordBank.className = 'py-2 px-3 rounded-lg text-xs font-bold bg-white text-tealaccent-700 shadow-sm transition';
+                btnStep.className = 'py-2 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition';
+            }
+        }
+
+        function renderWordBank(wordBankList) {
+            const container = document.getElementById('wordbank-list');
+            container.innerHTML = wordBankList.map(item => `
+                <button type="button" onclick="insertWord('${escapeQuotes(item.en)}')"
+                    class="w-full text-left bg-slate-50 hover:bg-tealaccent-50/80 border border-slate-200 hover:border-tealaccent-300 rounded-xl p-3 transition group">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-xs font-bold text-slate-900 group-hover:text-tealaccent-800">${escapeHTML(item.en)}</span>
+                        <span class="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-slate-200/80 text-slate-600">${escapeHTML(item.pos)}</span>
+                    </div>
+                    <p class="text-xs text-tealaccent-800 font-medium mt-0.5">${escapeHTML(item.ru)}</p>
+                    <p class="text-[11px] text-slate-500 italic mt-1">«${escapeHTML(item.example)}»</p>
+                </button>
+            `).join('');
+        }
+
+        function presentBotTurn(turnIndex) {
+            const scenario = state.currentScenario;
+            const turn = scenario.turns[turnIndex];
+            const totalTurns = scenario.turns.length;
+
+            // Обновляем прогресс
+            document.getElementById('turn-counter-text').textContent = `Реплика ${turnIndex + 1} из ${totalTurns}`;
+            const percent = Math.round(((turnIndex + 1) / totalTurns) * 100);
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+
+            // Добавляем сообщение бота в чат
+            appendBotMessage(turn.botText);
+
+            // Озвучиваем при необходимости
+            if (state.autoSpeak) {
+                speakEnglishText(turn.botText);
+            }
+
+            // Обновляем панель Scaffolding под текущий вопрос
+            renderScaffolding(turn);
+        }
+
+        function renderScaffolding(turn) {
+            // 1. Готовые модели предложений (Sentence Frames)
+            const framesContainer = document.getElementById('scaffolding-frames');
+            framesContainer.innerHTML = turn.frames.map(frame => `
+                <button type="button" onclick="insertFrame('${escapeQuotes(frame)}')"
+                    class="w-full text-left text-xs font-medium bg-brand-50/80 hover:bg-brand-100 text-brand-900 border border-brand-200 px-3 py-2 rounded-xl transition leading-relaxed active:scale-[0.99]">
+                    <span class="text-brand-600 font-bold mr-1">+</span> ${escapeHTML(frame)}
+                </button>
+            `).join('');
+
+            // 2. Расширенный словарь шага с частью речи (8–10 слов/фраз)
+            const vocabContainer = document.getElementById('scaffolding-vocab');
+            vocabContainer.innerHTML = turn.vocab.map(item => `
+                <button type="button" onclick="insertWord('${escapeQuotes(item.en)}')"
+                    class="flex flex-col items-start text-left bg-tealaccent-50/70 hover:bg-tealaccent-100/80 border border-tealaccent-200/80 rounded-xl px-2.5 py-2 transition">
+                    <div class="w-full flex items-center justify-between gap-1">
+                        <span class="text-xs font-bold text-tealaccent-950 leading-snug">${escapeHTML(item.en)}</span>
+                        <span class="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-white/80 text-tealaccent-700 border border-tealaccent-200/60 flex-shrink-0">${escapeHTML(item.pos)}</span>
+                    </div>
+                    <span class="text-[11px] text-slate-600 mt-0.5 leading-tight">${escapeHTML(item.ru)}</span>
+                </button>
+            `).join('');
+
+            // 3. Грамматическая опора и профилактика интерференции (RU / KK -> EN)
+            document.getElementById('grammar-rule-title').textContent = turn.grammar.title;
+            document.getElementById('grammar-formula').textContent = turn.grammar.formula;
+
+            const examplesContainer = document.getElementById('grammar-examples');
+            examplesContainer.innerHTML = turn.grammar.examples.map(ex => `
+                <p>✓ <em>${escapeHTML(ex)}</em></p>
+            `).join('');
+
+            const mistakesContainer = document.getElementById('grammar-mistakes');
+            mistakesContainer.innerHTML = turn.grammar.mistakes.map(m => `
+                <li>${escapeHTML(m)}</li>
+            `).join('');
+        }
+
+        function insertFrame(frameText) {
+            const input = document.getElementById('user-input');
+            const current = input.value.trim();
+            input.value = current ? `${current} ${frameText}` : frameText;
+            input.focus();
+            updateWordCounter(input.value);
+            incrementHintsUsed();
+        }
+
+        function insertWord(word) {
+            const input = document.getElementById('user-input');
+            const current = input.value.trim();
+            input.value = current ? `${current} ${word} ` : `${word} `;
+            input.focus();
+            updateWordCounter(input.value);
+            incrementHintsUsed();
+        }
+
+        function incrementHintsUsed() {
+            state.hintsUsed += 1;
+            document.getElementById('hints-used-count').textContent = state.hintsUsed;
+        }
+
+        // ============================================================================
+        // ЛОГИКА ОТПРАВКИ ОТВЕТА И АДАПТИВНАЯ РЕАКЦИЯ СОБЕСЕДНИКА
+        // ============================================================================
+        function handleUserSend() {
+            // Останавливаем запись с микрофона, если она шла
+            if (state.isRecording && state.recognition) {
+                state.recognition.stop();
+            }
+
+            const input = document.getElementById('user-input');
+            const rawText = input.value.trim();
+            if (!rawText) {
+                showToast('Сначала скажи ответ в микрофон или напиши его на английском.', 'warning');
+                input.focus();
+                return;
+            }
+
+            const words = countWords(rawText);
+            if (words < 3) {
+                showToast('Попробуй дать более полный ответ (хотя бы 3–4 слова), используя клише справа.', 'info');
+                input.focus();
+                return;
+            }
+
+            // Сохраняем ответ ученика
+            state.userResponses.push({
+                turn: state.currentTurnIndex + 1,
+                text: rawText,
+                wordCount: words
+            });
+
+            // Отображаем сообщение ученика в чате
+            appendUserMessage(rawText, words);
+
+            // Очищаем поле
+            input.value = '';
+            updateWordCounter('');
+
+            // Проверяем, не закончился ли сценарий
+            const nextIndex = state.currentTurnIndex + 1;
+            if (nextIndex < state.currentScenario.turns.length) {
+                state.currentTurnIndex = nextIndex;
+                // Имитируем естественную паузу собеседника + мягкую адаптивную реакцию на длину ответа
+                setTimeout(() => {
+                    const reactionPrefix = generateAdaptiveReaction(rawText, words);
+                    const nextTurn = state.currentScenario.turns[nextIndex];
+                    const combinedReply = reactionPrefix ? `${reactionPrefix} ${nextTurn.botText}` : nextTurn.botText;
+
+                    document.getElementById('turn-counter-text').textContent = `Реплика ${nextIndex + 1} из ${state.currentScenario.turns.length}`;
+                    const percent = Math.round(((nextIndex + 1) / state.currentScenario.turns.length) * 100);
+                    document.getElementById('progress-bar').style.width = `${percent}%`;
+
+                    appendBotMessage(combinedReply);
+                    if (state.autoSpeak) {
+                        speakEnglishText(combinedReply);
+                    }
+                    renderScaffolding(nextTurn);
+                }, 600);
+            } else {
+                // Финал сценария -> переход к статистике и анкете
+                setTimeout(() => {
+                    showResultsScreen();
+                }, 700);
+            }
+        }
+
+        // Адаптивная микро-реакция собеседника (поддерживает B1-уровень коммуникации)
+        function generateAdaptiveReaction(userText, wordCount) {
+            const lower = userText.toLowerCase();
+            if (wordCount >= 14 && (lower.includes('because') || lower.includes('however') || lower.includes('opinion'))) {
+                return "I really like how clearly you explained your point!";
+            }
+            if (wordCount >= 12) {
+                return "That's a great answer!";
+            }
+            if (wordCount < 7) {
+                return "Got it! Try to add a bit more detail next time.";
+            }
+            return "";
+        }
+
+        function appendBotMessage(text) {
+            const container = document.getElementById('chat-messages');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'flex items-start gap-2.5 message-anim';
+            msgDiv.innerHTML = `
+                <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
+                    ${state.currentScenario.botInitials}
+                </div>
+                <div class="bg-white border border-slate-200 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm max-w-[85%] space-y-2">
+                    <p class="text-sm text-slate-800 leading-relaxed">${escapeHTML(text)}</p>
+                    <button type="button" onclick="speakEnglishText('${escapeQuotes(text)}')"
+                        class="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded-lg transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        </svg>
+                        <span>Listen</span>
+                    </button>
+                </div>
+            `;
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function appendUserMessage(text, wordCount) {
+            const container = document.getElementById('chat-messages');
+            const badgeColor = wordCount >= 12
+                ? 'bg-emerald-100 text-emerald-800'
+                : 'bg-brand-500/30 text-white';
+            const badgeLabel = wordCount >= 12 ? `${wordCount} слов • Отличный объём B1!` : `${wordCount} слов`;
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'flex items-end justify-end gap-2.5 message-anim';
+            msgDiv.innerHTML = `
+                <div class="bg-brand-600 text-white rounded-2xl rounded-tr-none px-4 py-3 shadow-sm max-w-[85%] space-y-1.5">
+                    <p class="text-sm leading-relaxed">${escapeHTML(text)}</p>
+                    <div class="flex justify-end">
+                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${badgeColor}">
+                            ${badgeLabel}
+                        </span>
+                    </div>
+                </div>
+            `;
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // ============================================================================
+        // WEB SPEECH API: ОЗВУЧКА (TTS) И ГОЛОСОВОЙ ВВОД (STT)
+        // ============================================================================
+        function speakEnglishText(text) {
+            if (!('speechSynthesis' in window)) {
+                showToast('Озвучка не поддерживается в этом браузере.', 'warning');
+                return;
+            }
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.95; // Чуть комфортнее для восприятия уровнем B1
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function toggleAutoSpeak() {
+            state.autoSpeak = !state.autoSpeak;
+            document.getElementById('auto-speak-label').textContent = state.autoSpeak ? 'Автозвук: ВКЛ' : 'Автозвук: ВЫКЛ';
+            if (!state.autoSpeak && 'speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                const micBtn = document.getElementById('mic-btn');
+                micBtn.title = 'Голосовой ввод не поддерживается в этом браузере. Используйте клавиатуру.';
+                micBtn.classList.add('opacity-50');
+                return;
+            }
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = true;
+            recognition.continuous = false;
+
+            let initialTextBeforeSpeech = '';
+
+            recognition.onstart = function () {
+                state.isRecording = true;
+                initialTextBeforeSpeech = document.getElementById('user-input').value.trim();
+                const micBtn = document.getElementById('mic-btn');
+                micBtn.classList.remove('bg-slate-100', 'text-slate-700');
+                micBtn.classList.add('bg-rose-600', 'text-white', 'recording-pulse');
+                document.getElementById('mic-status').classList.remove('hidden');
+            };
+
+            recognition.onresult = function (event) {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                }
+                const input = document.getElementById('user-input');
+                const combined = initialTextBeforeSpeech
+                    ? `${initialTextBeforeSpeech} ${transcript}`
+                    : transcript;
+                input.value = combined;
+                updateWordCounter(combined);
+            };
+
+            recognition.onerror = function (event) {
+                if (event.error === 'not-allowed') {
+                    showToast('Доступ к микрофону запрещён. Разрешите микрофон в настройках браузера или введите ответ текстом.', 'warning');
+                } else if (event.error !== 'no-speech') {
+                    showToast('Не удалось распознать речь. Попробуйте ещё раз или напишите ответ.', 'info');
+                }
+            };
+
+            recognition.onend = function () {
+                state.isRecording = false;
+                const micBtn = document.getElementById('mic-btn');
+                micBtn.classList.add('bg-slate-100', 'text-slate-700');
+                micBtn.classList.remove('bg-rose-600', 'text-white', 'recording-pulse');
+                document.getElementById('mic-status').classList.add('hidden');
+            };
+
+            state.recognition = recognition;
+        }
+
+        function toggleVoiceRecognition() {
+            if (!state.recognition) {
+                showToast('Распознавание голоса лучше всего работает в Chrome или Edge. Вы также можете напечатать ответ.', 'info');
+                return;
+            }
+            if (state.isRecording) {
+                state.recognition.stop();
+            } else {
+                try {
+                    state.recognition.start();
+                } catch (e) {
+                    state.recognition.stop();
+                }
+            }
+        }
+
+        // ============================================================================
+        // ЭКРАН ИТОГОВ И ЭКСПОРТ ДАННЫХ ДЛЯ ДИССЕРТАЦИИ
+        // ============================================================================
+        function showResultsScreen() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+
+            const totalTurns = state.userResponses.length;
+            const totalWords = state.userResponses.reduce((sum, r) => sum + r.wordCount, 0);
+            const avgWords = totalTurns > 0 ? (totalWords / totalTurns).toFixed(1) : 0;
+
+            document.getElementById('stat-turns').textContent = totalTurns;
+            document.getElementById('stat-total-words').textContent = totalWords;
+            document.getElementById('stat-avg-words').textContent = `${avgWords} сл.`;
+            document.getElementById('stat-hints').textContent = state.hintsUsed;
+
+            // Сбрасываем форму анкеты
+            document.getElementById('survey-form').reset();
+            document.getElementById('report-preview-box').classList.add('hidden');
+
+            document.getElementById('trainer-screen').classList.add('hidden');
+            document.getElementById('results-screen').classList.remove('hidden');
+        }
+
+        function collectReportData() {
+            const form = document.getElementById('survey-form');
+            const q1 = form.querySelector('input[name="confidence"]:checked')?.value || 'Не указано';
+            const q2 = form.querySelector('input[name="scaffolding_help"]:checked')?.value || 'Не указано';
+            const q3 = form.querySelector('input[name="easier_than_class"]:checked')?.value || 'Не указано';
+            const q4 = form.querySelector('input[name="most_helpful_tool"]:checked')?.value || 'Не указано';
+            const q5 = form.querySelector('input[name="main_difficulty"]:checked')?.value || 'Не указано';
+
+            const studentName = document.getElementById('student-name').value.trim() || 'Анонимный ученик';
+            const studentGrade = document.getElementById('student-grade').value;
+            const totalTurns = state.userResponses.length;
+            const totalWords = state.userResponses.reduce((sum, r) => sum + r.wordCount, 0);
+            const avgWords = totalTurns > 0 ? (totalWords / totalTurns).toFixed(1) : '0';
+
+            return {
+                date: new Date().toLocaleDateString('ru-RU'),
+                studentName,
+                studentGrade,
+                scenarioTitle: `${state.currentScenario.title} (${state.currentScenario.titleRu})`,
+                totalTurns,
+                totalWords,
+                avgWords,
+                hintsUsed: state.hintsUsed,
+                q1, q2, q3, q4, q5,
+                transcript: state.userResponses.map(r => `  [Реплика ${r.turn} | ${r.wordCount} сл.]: ${r.text}`).join('\n')
+            };
+        }
+
+        function validateSurvey() {
+            const form = document.getElementById('survey-form');
+            const requiredGroups = ['confidence', 'scaffolding_help', 'easier_than_class', 'most_helpful_tool', 'main_difficulty'];
+            for (const name of requiredGroups) {
+                if (!form.querySelector(`input[name="${name}"]:checked`)) {
+                    showToast('Пожалуйста, ответь на все 5 вопросов мини-анкеты перед экспортом.', 'warning');
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function copyReportForTeacher() {
+            if (!validateSurvey()) return;
+            const d = collectReportData();
+
+            const reportText =
+`=== ОТЧЁТ SPEAKFLOW B1 (МАГИСТЕРСКОЕ ИССЛЕДОВАНИЕ) ===
+Дата: ${d.date}
+Ученик: ${d.studentName} | Класс: ${d.studentGrade}
+Сценарий: ${d.scenarioTitle}
+
+--- ОБЪЕКТИВНЫЕ ПОКАЗАТЕЛИ РЕЧИ ---
+• Количество реплик: ${d.totalTurns}
+• Всего слов (English): ${d.totalWords}
+• Средняя длина высказывания: ${d.avgWords} слов
+• Использовано речевых опор (Scaffolding): ${d.hintsUsed}
+
+--- РЕЗУЛЬТАТЫ МИНИ-АНКЕТЫ УЧЕНИКА ---
+1. Уверенность во время диалога: ${d.q1}
+2. Помощь речевых клише и подсказок (L2→L3): ${d.q2}
+3. Сравнение с ответом у доски в классе: ${d.q3}
+4. Самый полезный инструмент тренажёра: ${d.q4}
+5. Главная трудность при говорении: ${d.q5}
+
+--- СТЕНОГРАММА ОТВЕТОВ УЧЕНИКА ---
+${d.transcript}`;
+
+            const previewBox = document.getElementById('report-preview-box');
+            previewBox.textContent = reportText;
+            previewBox.classList.remove('hidden');
+
+            // Надёжное копирование через textarea + execCommand (работает даже в iFrame)
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = reportText;
+            tempTextArea.style.position = 'fixed';
+            tempTextArea.style.left = '-9999px';
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            try {
+                document.execCommand('copy');
+                showToast('Отчёт скопирован! Теперь его можно отправить учителю или вставить в документ.', 'success');
+            } catch (err) {
+                showToast('Отчёт сформирован ниже — выделите и скопируйте его вручную.', 'info');
+            }
+            document.body.removeChild(tempTextArea);
+        }
+
+        function downloadCSVReport() {
+            if (!validateSurvey()) return;
+            const d = collectReportData();
+
+            // BOM для корректного открытия кириллицы в Excel
+            const BOM = '\uFEFF';
+            const headers = [
+                'Дата', 'Ученик', 'Класс', 'Сценарий',
+                'Реплик', 'Всего слов', 'Средняя длина фразы', 'Использовано опор',
+                'Уверенность (1-5)', 'Помощь подсказок', 'Сравнение с классом', 'Самый полезный инструмент', 'Главная трудность'
+            ];
+            const row = [
+                d.date, d.studentName, d.studentGrade, d.scenarioTitle,
+                d.totalTurns, d.totalWords, d.avgWords, d.hintsUsed,
+                d.q1, d.q2, d.q3, d.q4, d.q5
+            ].map(val => `"${String(val).replace(/"/g, '""')}"`);
+
+            const csvContent = BOM + headers.join(';') + '\n' + row.join(';');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            link.href = url;
+            const safeName = d.studentName.replace(/[^a-zA-Zа-яА-Я0-9_-]/g, '_');
+            link.download = `SpeakFlow_B1_${safeName}_${d.studentGrade.replace(' ', '')}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showToast('CSV-файл скачан! Его можно открыть в Excel для анализа статистики.', 'success');
+        }
+
+        // ============================================================================
+        // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ И МОДАЛЬНЫЕ ОКНА
+        // ============================================================================
+        function setupInputListeners() {
+            const input = document.getElementById('user-input');
+            input.addEventListener('input', () => {
+                updateWordCounter(input.value);
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleUserSend();
+                }
+            });
+        }
+
+        function countWords(str) {
+            const cleaned = str.trim().replace(/[.,!?;:"()—–-]+/g, ' ');
+            if (!cleaned) return 0;
+            return cleaned.split(/\s+/).filter(Boolean).length;
+        }
+
+        function updateWordCounter(text) {
+            const count = countWords(text);
+            const badge = document.getElementById('word-count-badge');
+            badge.textContent = count;
+
+            if (count >= 12) {
+                badge.className = 'font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800';
+            } else if (count >= 5) {
+                badge.className = 'font-bold px-2 py-0.5 rounded-md bg-brand-100 text-brand-800';
+            } else {
+                badge.className = 'font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700';
+            }
+        }
+
+        function confirmExitToMenu() {
+            document.getElementById('exit-modal').classList.remove('hidden');
+        }
+
+        function closeExitModal() {
+            document.getElementById('exit-modal').classList.add('hidden');
+        }
+
+        function returnToMenu() {
+            closeExitModal();
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+            if (state.isRecording && state.recognition) {
+                state.recognition.stop();
+            }
+            document.getElementById('trainer-screen').classList.add('hidden');
+            document.getElementById('results-screen').classList.add('hidden');
+            document.getElementById('scenario-screen').classList.remove('hidden');
+        }
+
+        function showMethodologyModal() {
+            document.getElementById('methodology-modal').classList.remove('hidden');
+        }
+
+        function closeMethodologyModal() {
+            document.getElementById('methodology-modal').classList.add('hidden');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const colors = {
+                success: 'bg-emerald-600 text-white',
+                warning: 'bg-amber-600 text-white',
+                info: 'bg-slate-800 text-white'
+            };
+            const toast = document.createElement('div');
+            toast.className = `${colors[type] || colors.info} px-4 py-3 rounded-xl shadow-lg text-xs sm:text-sm font-medium max-w-sm message-anim pointer-events-auto`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function escapeHTML(str) {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function escapeQuotes(str) {
+            return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>
